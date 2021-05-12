@@ -1,8 +1,12 @@
+import os
+
 import requests
 import json
 from cmd import Cmd
 from datetime import datetime
 from threading import Thread
+import argparse
+import pickle
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -19,28 +23,62 @@ class Utente():
 
 #----------------------------------------------------------------------------------------------------------------------#
 
-class ClientPrompt(Cmd):
+class ClientPrompt(Cmd, address):
 
     '''Viene definita una classe ClientPrompt, proprio come abbiamo fatto con il ring.'''
 
     prompt = ' '
     intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help"
 
+    def __init__(self, address = None):
+        self.address = address
 
 
-    def do_authentication(self, input, token):
+    def do_registration(self):
+
+        #PROTOTIPO COMANDO: registration username password
+
+        '''Vengono inviate le credenziali del nuovo utente, con la particolarità che il token viene settato come valore
+           nullo. Successivamente viene richiesto un json di controllo per mostrare all'utente lo status della richiesta
+           di registrazione.'''
+
+        # all'atto della registrazione, creo un oggetto globale utente
+        global utente
+        utente = Utente()
+
+        # prendo username e password da linea di comando e li associo all'oggetto utente
+        utente.username = input('Inserire username: ')
+        utente.password = int(input('Inserire password numerica: '))
+
+        #definizione credenziali e token
+        user = {}
+        user['username'] = utente.username
+        user['password'] = utente.password
+        #user['token'] = utente.token
+
+        #invio credenziali e recupero json di risposta
+        print("Richiesta di Registrazione in corso...")
+        response = requests.post(self.address + '/api/v1/resources/registration', params = user)
+        response = json.dumps(response.json(), indent = 4, sort_keys = False)  # json1(tutto ok)   json2(errore di qualche tipo)
+
+        if response['message'] == 'utente registrato correttamente':
+            utente.registrato = True   # -----> l'utente è stato registrato con successo
+            print('La registrazione è avvenuta con successo. Ora puoi accedere al servizio di messaggistica ISI!')
+        else:
+            print(response['message'])  # -----> sarà 'nome utente già esistente'
+
+        save_path = args.cache + utente.username
+        with open(save_path, 'wb') as outfile:
+            pickle.dump(utente)
+
+
+
+    def do_authentication(self):
 
         #PROTOTIPO COMANDO: authentication username password
 
         '''Vengono inviate le credenziali e il token alla web api. Successivamente viene richiesto un json di controllo
            per mostrare all'utente lo status della richiesta di autenticazione.'''
-
-        #all'atto dell'autenticazione, creo un oggetto globale utente
-        global utente = Utente()
-
-        #prendo username e password da linea di comando e li associo all'oggetto utente
-        global utente.username = argv[1]
-        global utente.password = argv[2]
 
         #definizione credenziali e token
         user = {}
@@ -50,57 +88,26 @@ class ClientPrompt(Cmd):
 
         #invio credenziali e recupero json di risposta
         print('Richiesta di Autenticazione in corso...')
-        response = requests.post(address + '/api/v1/resources/autenticazione', params = user)
+        response = requests.post(self.address + '/api/v1/resources/authentication', params = user)
         response = json.dumps(response.json(), indent = 4, sort_keys = False)
 
         #ho 3 possibili scenari : json1(tutto ok)  json2(token scaduto + token)  json3(nome utente o password errati)
-        if response['status'] == 'tutto ok':
-            global utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
+        if response['message'] == "L'UTENTE HA ANCORA IL TOKEN VALIDO":
+            utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
             print('Sei online!')
-        elif response['status'] == 'token scaduto':
-            global token = response['new_token']     # -----> aggiorno il token dell'utente
-            global abilitato = True    # -----> l'utente è abilitato a usare il servizio
+        elif response['message'] == "IL TOKEN SCADUTO E' STATO AGGIORNATO, AUTENTICAZIONE RIUSCITA":
+            utente.token = response['token']     # -----> aggiorno il token dell'utente
+            utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
+            save_path = args.cache + utente.username
+            with open(save_path, 'wb') as outfile:   # -----> salvo le informazioni del profilo in un file apposito
+                pickle.dump(utente)
             print('Sei online!')
         else:
-            print(response['status']) # -----> sarà 'nome utente o password scaduta'
+            print(response['message']) # -----> sarà 'nome utente o password scaduta'
 
 
 
-    def do_registration(self, input):
-
-        #PROTOTIPO COMANDO: registration username password
-
-        '''Vengono inviate le credenziali del nuovo utente, con la particolarità che il token viene settato come valore
-           nullo. Successivamente viene richiesto un json di controllo per mostrare all'utente lo status della richiesta
-           di registrazione.'''
-
-        # all'atto della registrazione, creo un oggetto globale utente
-        global utente = Utente()
-
-        # prendo username e password da linea di comando e li associo all'oggetto utente
-        global utente.username = argv[1]
-        global utente.password = int(argv[2])
-
-        #definizione credenziali e token
-        user = {}
-        user['username'] = utente.username
-        user['password'] = utente.password
-        user['token'] = utente.token
-
-        #invio credenziali e recupero json di risposta
-        print("Richiesta di Registrazione in corso...")
-        response = requests.post(address + '/api/v1/resources/registrazione', params = user)
-        response = json.dumps(response.json(), indent = 4, sort_keys = False)  # json1(messaggio di stato)   json2(messaggio di stato + token)
-
-        if response['status'] == 'tutto ok':
-            global utente.registrato = True   # -----> l'utente è stato registrato con successo
-            print('La registrazione è avvenuta con successo. Ora puoi accedere al servizio di messaggistica ISI!')
-        else:
-            print(response['status'])  # -----> sarà 'nome utente già esistente'
-
-
-
-    def do_send(self, input, username, token):
+    def do_send(self, utente):
 
         #PROTOTIPO COMANDO: send text receiver
 
@@ -110,23 +117,30 @@ class ClientPrompt(Cmd):
 
         #inserisco tutte le informazioni necessarie per il messaggio
         package = {}
-        package['Text'] = argv[1]
-        package['Sender'] = username
-        package['Receiver'] = argv[2]    #receiver
-        package['Timestamp'] = datetime.now()
-        package['Token'] = token
+        package['messaggio'] = input('Inserire il messaggio da inviare: ')
+        package['mittente'] = utente.username
+        package['destinatario'] = input('Inserire il destinatario: ')    #destinatario
+        package['data'] = datetime.now()
+        package['token'] = utente.token
 
         #quando creo un package completo...
-        response = requests.post(address + '/api/v1/resources/inviamessaggio', params = user)
-        print(response['status'])
+        response = requests.post(self.address + '/api/v1/resources/send', params = user)
 
 
 
-    def do_logout(self):
+    def do_load(self):
 
-        '''La function disconnette l'utente dal servizio di messaggistica.'''
+        '''La function carica le informazioni di un utente sul client.'''
 
-        pass
+        #DA IMPLEMENTARE PROTOCOLLI DI SICUREZZA PER OSCURARE LE INFORMAZIONI PERSONALI
+
+        #carico dalla cache il profilo utente che voglio utilizzare
+        user = input('Inserire il profilo da recuperare: ')
+        path = args.cache + user
+        if os.path.exists(path):
+            with open(path, 'rb') as fin:
+                global utente
+                utente = pickle.load(fin)
 
 
 
@@ -149,25 +163,40 @@ def Receiver(address):
        del messaggio e dalla data/ora di scrittura.'''
 
     #recupero i messaggi che mi sono stati inviati
-    response = requests.get(address + '/api/v1/resources/recuperomessaggi')
+    response = requests.get(address + '/api/v1/resources/receive')
     response = json.dumps(response.json(), indent = 4, sort_keys = False)
 
-    for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
-        print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['text']} --- {messaggio['timestamp']}")
+    try:
+        for messaggio in response:   # -----> stampo tutti i messaggi che sono arrivati
+            print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
+    except:
+        print(response)
+
+#----------------------------------------------------------------------------------------------------------------------#
+
+#creo una cartella di memoria per salvare i profili utilizzati
+parser = argparse.ArgumentParser()
+
+parser.add_argument("-i", "--cache", help = "Cartella dei Profili",
+                    type = str, default = "./Cache/")
+
+args = parser.parse_args()
 
 
 if __name__ == '__main__':
 
     #logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.ERROR)
 
-    #main non ancora completo
+    address = input("Inserire l'indirizzo: ")
+
+    if not os.path.exists(args.cache):
+        os.mkdir(args.cache)
 
     address = 'http://192.168.114.205:12345'
 
-    if utente.Registrato and utente.Autenticato:    #se l'utente è autorizzato (registrato + autenticato) il client può partire
-        #puoi mandare e ricevere i messaggi
+    prompt = ClientPrompt(address = address)
 
-        Thread(target = managePrompt, args = (prompt,)).start()
+    Thread(target = managePrompt, args = (prompt,)).start()
 
-        while True:
-            Receiver(address)
+    while True:
+        Receiver(address)
