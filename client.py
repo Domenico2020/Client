@@ -1,5 +1,4 @@
 import os
-
 import requests
 import json
 from cmd import Cmd
@@ -7,6 +6,8 @@ from datetime import datetime
 from threading import Thread
 import argparse
 import pickle
+import time
+import sys
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -23,17 +24,13 @@ class Utente():
 
 #----------------------------------------------------------------------------------------------------------------------#
 
-class ClientPrompt(Cmd, address):
+class ClientPrompt(Cmd):
 
     '''Viene definita una classe ClientPrompt, proprio come abbiamo fatto con il ring.'''
 
     prompt = ' '
     intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help"
-
-    def __init__(self, address = None):
-        self.address = address
-
-
+    
     def do_registration(self):
 
         #PROTOTIPO COMANDO: registration username password
@@ -81,14 +78,14 @@ class ClientPrompt(Cmd, address):
            per mostrare all'utente lo status della richiesta di autenticazione.'''
 
         #definizione credenziali e token
-        user = {}
-        user['username'] = utente.username
-        user['password'] = utente.password
-        user['token'] = utente.token
+        #user = {}
+        #user['username'] = utente.username
+        #user['password'] = utente.password
+        #user['token'] = utente.token
 
         #invio credenziali e recupero json di risposta
         print('Richiesta di Autenticazione in corso...')
-        response = requests.post(self.address + '/api/v1/resources/authentication', params = user)
+        response = requests.get(self.address + '/api/v1/resources/authentication') #params = user)
         response = json.dumps(response.json(), indent = 4, sort_keys = False)
 
         #ho 3 possibili scenari : json1(tutto ok)  json2(token scaduto + token)  json3(nome utente o password errati)
@@ -124,7 +121,7 @@ class ClientPrompt(Cmd, address):
         package['token'] = utente.token
 
         #quando creo un package completo...
-        response = requests.post(self.address + '/api/v1/resources/send', params = user)
+        response = requests.post(self.address + '/api/v1/resources/send', params = package)
 
 
 
@@ -150,6 +147,24 @@ class ClientPrompt(Cmd, address):
 
         pass
 
+
+
+    def do_address(self):
+
+        '''La function permette di specificare l'indirizzo degli host'''
+
+        global address
+        address = input("Inserire l'indirizzo del host: ")
+
+
+
+    def do_exit(self):
+
+        '''La function interrompe i processi del client'''
+
+        print('Client interrotto')
+        sys.exit()
+
 #----------------------------------------------------------------------------------------------------------------------#
 
 def managePrompt(prompt):
@@ -158,7 +173,7 @@ def managePrompt(prompt):
 
 def Receiver(address):
 
-    '''La function definisce una coda di messaggi in entrata: ogni 2 secondi viene controllata e vengono stampati i
+    '''La function controlla ogni 2 secondi viene controllata e vengono stampati i
        pacchetti eventualmente presenti in essa. Il pacchetto tipo è formato da un messaggio testuale, dal mittente
        del messaggio e dalla data/ora di scrittura.'''
 
@@ -166,11 +181,10 @@ def Receiver(address):
     response = requests.get(address + '/api/v1/resources/receive')
     response = json.dumps(response.json(), indent = 4, sort_keys = False)
 
-    try:
-        for messaggio in response:   # -----> stampo tutti i messaggi che sono arrivati
+    if len(response['messaggi']) != 0:
+        for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
             print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
-    except:
-        print(response)
+
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -182,21 +196,17 @@ parser.add_argument("-i", "--cache", help = "Cartella dei Profili",
 
 args = parser.parse_args()
 
-
 if __name__ == '__main__':
 
     #logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.ERROR)
 
-    address = input("Inserire l'indirizzo: ")
-
     if not os.path.exists(args.cache):
         os.mkdir(args.cache)
 
-    address = 'http://192.168.114.205:12345'
-
-    prompt = ClientPrompt(address = address)
+    prompt = ClientPrompt()
 
     Thread(target = managePrompt, args = (prompt,)).start()
 
     while True:
+        time.sleep(2)
         Receiver(address)
