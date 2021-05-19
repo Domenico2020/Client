@@ -8,6 +8,9 @@ import argparse
 import pickle
 import time
 import sys
+import playsound as ps
+import pprint as pp
+from icecream import ic
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -28,12 +31,12 @@ class ClientPrompt(Cmd):
 
     '''Viene definita una classe ClientPrompt, proprio come abbiamo fatto con il ring.'''
 
-    prompt = ' '
+    prompt = 'ISI-Client -->'
     intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help"
     
-    def do_registration(self):
+    def do_registration(self, inp):
 
-        #PROTOTIPO COMANDO: registration username password
+        #PROTOTIPO COMANDO: registration [username] <password>
 
         '''Vengono inviate le credenziali del nuovo utente, con la particolarità che il token viene settato come valore
            nullo. Successivamente viene richiesto un json di controllo per mostrare all'utente lo status della richiesta
@@ -44,8 +47,12 @@ class ClientPrompt(Cmd):
         utente = Utente()
 
         # prendo username e password da linea di comando e li associo all'oggetto utente
-        utente.username = input('Inserire username: ')
-        utente.password = int(input('Inserire password numerica: '))
+        result = re.search('^\[([a-zA-Z0-9]*)\]', inp)
+        if bool(result):
+            utente.username = result.group(1)
+        result = re.search('<([a-zA-Z0-9\,\.\;\'\"\!\?<> ]*)>', inp)
+        if bool(result):
+            utente.password = result.group(1)
 
         #definizione credenziali e token
         user = {}
@@ -54,8 +61,8 @@ class ClientPrompt(Cmd):
         #user['token'] = utente.token
 
         #invio credenziali e recupero json di risposta
-        print("Richiesta di Registrazione in corso...")
-        response = requests.post(self.address + '/api/v1/resources/registration', params = user)
+        ic('Richiesta di Registrazione in corso...')
+        response = requests.post(address + '/api/v1/resources/registration', params = user)
         response = json.dumps(response.json(), indent = 4, sort_keys = False)  # json1(tutto ok)   json2(errore di qualche tipo)
 
         if response['message'] == 'utente registrato correttamente':
@@ -72,20 +79,20 @@ class ClientPrompt(Cmd):
 
     def do_authentication(self):
 
-        #PROTOTIPO COMANDO: authentication username password
+        #PROTOTIPO COMANDO: authentication
 
         '''Vengono inviate le credenziali e il token alla web api. Successivamente viene richiesto un json di controllo
            per mostrare all'utente lo status della richiesta di autenticazione.'''
 
         #definizione credenziali e token
-        #user = {}
-        #user['username'] = utente.username
-        #user['password'] = utente.password
+        user = {}
+        user['username'] = utente.username
+        user['password'] = utente.password
         #user['token'] = utente.token
 
         #invio credenziali e recupero json di risposta
-        print('Richiesta di Autenticazione in corso...')
-        response = requests.get(self.address + '/api/v1/resources/authentication') #params = user)
+        ic('Richiesta di Autenticazione in corso...')
+        response = requests.get(address + '/api/v1/resources/authentication', params = user)
         response = json.dumps(response.json(), indent = 4, sort_keys = False)
 
         #ho 3 possibili scenari : json1(tutto ok)  json2(token scaduto + token)  json3(nome utente o password errati)
@@ -100,13 +107,13 @@ class ClientPrompt(Cmd):
                 pickle.dump(utente)
             print('Sei online!')
         else:
-            print(response['message']) # -----> sarà 'nome utente o password scaduta'
+            print(response['message']) # -----> sarà 'nome utente o password sbagliata'
 
 
 
-    def do_send(self, utente):
+    def do_send(self, inp):
 
-        #PROTOTIPO COMANDO: send text receiver
+        #PROTOTIPO COMANDO: send <text> [receiver]
 
         '''La function definisce una coda di messaggi in uscita: ogni 2 secondi viene controllata e vengono inviati i
            pacchetti eventualmente presenti in essa. Il pacchetto tipo è formato da un messaggio testuale, dal mittente
@@ -114,30 +121,46 @@ class ClientPrompt(Cmd):
 
         #inserisco tutte le informazioni necessarie per il messaggio
         package = {}
-        package['messaggio'] = input('Inserire il messaggio da inviare: ')
+
+        #prendo il messaggio
+        result = re.search('<([a-zA-Z0-9\,\.\;\'\"\!\?<> ]*)>', inp)
+        if bool(result):
+            package['messaggio'] = result.group(1)
+
         package['mittente'] = utente.username
-        package['destinatario'] = input('Inserire il destinatario: ')    #destinatario
+
+        #prendo il destinatario
+        result = re.search('^\[([a-zA-Z0-9]*)\]', inp)
+        if bool(result):
+            package['destinatario'] = result.group(1)
+
         package['data'] = datetime.now()
+
         package['token'] = utente.token
 
         #quando creo un package completo...
-        response = requests.post(self.address + '/api/v1/resources/send', params = package)
+        response = requests.post(address + '/api/v1/resources/send', params = package)
 
 
 
-    def do_load(self):
+    def do_load(self, inp):
 
         '''La function carica le informazioni di un utente sul client.'''
 
         #DA IMPLEMENTARE PROTOCOLLI DI SICUREZZA PER OSCURARE LE INFORMAZIONI PERSONALI
 
         #carico dalla cache il profilo utente che voglio utilizzare
-        user = input('Inserire il profilo da recuperare: ')
+        result = re.search('^\[([a-zA-Z0-9]*)\]', inp)
+        if bool(result):
+            user = result.group(1)
+
         path = args.cache + user
         if os.path.exists(path):
             with open(path, 'rb') as fin:
                 global utente
                 utente = pickle.load(fin)
+        else:
+            pp.pprint("Il profilo indicato non è disponibile nella cache")
 
 
 
@@ -149,12 +172,16 @@ class ClientPrompt(Cmd):
 
 
 
-    def do_address(self):
+    def do_address(self, inp):
+
+        ##PROTOTIPO COMANDO: address <address>
 
         '''La function permette di specificare l'indirizzo degli host'''
 
-        global address
-        address = input("Inserire l'indirizzo del host: ")
+        result = re.search('<([a-zA-Z0-9\,\.\:\/\'\"\!\?<> ]*)>', inp)
+        if bool(result):
+            global address
+            address = result.group(1)
 
 
 
@@ -163,6 +190,7 @@ class ClientPrompt(Cmd):
         '''La function interrompe i processi del client'''
 
         print('Client interrotto')
+        self.close()
         sys.exit()
 
 #----------------------------------------------------------------------------------------------------------------------#
@@ -171,28 +199,37 @@ def managePrompt(prompt):
     prompt.cmdloop()
 
 
-def Receiver(address):
+
+def Receiver(address, args):
 
     '''La function controlla ogni 2 secondi viene controllata e vengono stampati i
        pacchetti eventualmente presenti in essa. Il pacchetto tipo è formato da un messaggio testuale, dal mittente
        del messaggio e dalla data/ora di scrittura.'''
 
+    #definizione dei parametri del get
+    user = {}
+    user['username'] = utente.username
+    user['token'] = user.token
+
     #recupero i messaggi che mi sono stati inviati
-    response = requests.get(address + '/api/v1/resources/receive')
+    response = requests.get(address + '/api/v1/resources/receive', params = user)
     response = json.dumps(response.json(), indent = 4, sort_keys = False)
 
     if len(response['messaggi']) != 0:
+        ps.playsound(args.root + "notification.mp4")
         for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
-            print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
-
+            pp.pprint(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
 
 #----------------------------------------------------------------------------------------------------------------------#
 
 #creo una cartella di memoria per salvare i profili utilizzati
 parser = argparse.ArgumentParser()
 
-parser.add_argument("-i", "--cache", help = "Cartella dei Profili",
+parser.add_argument("-i1", "--cache", help = "Cartella dei Profili",
                     type = str, default = "./Cache/")
+
+parser.add_argument("-i2", "--root", help = "Cartella Base",
+                    type = str, default = "./Client/")
 
 args = parser.parse_args()
 
@@ -208,5 +245,5 @@ if __name__ == '__main__':
     Thread(target = managePrompt, args = (prompt,)).start()
 
     while True:
-        time.sleep(2)
+        time.sleep(1)
         Receiver(address)
