@@ -251,6 +251,8 @@ parser.add_argument("-i2", "--root", help = "Cartella Base",
 
 args = parser.parse_args()
 
+address = '127.0.0.1:12345' # Indirizzo predefinito
+
 if __name__ == '__main__':
 
     #logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.ERROR)
