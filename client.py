@@ -1,6 +1,4 @@
-import os
 import requests
-import json
 from cmd import Cmd
 from datetime import datetime
 from threading import Thread
@@ -9,6 +7,8 @@ import pickle
 import time
 import sys
 import playsound as ps
+import re
+import os
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -30,7 +30,7 @@ class ClientPrompt(Cmd):
     '''Viene definita una classe ClientPrompt, proprio come abbiamo fatto con il ring.'''
 
     prompt = 'ISI-Client --> '
-    intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help.\n Per prima cosa, inserisci l'indirizzo del tuo host!"
+    intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help.\nPer prima cosa, inserisci l'indirizzo del tuo host!"
 
     
     def do_registration(self, inp):
@@ -209,7 +209,17 @@ class ClientPrompt(Cmd):
         print(f'Password: {utente.password}')
         print(f'Token: {utente.token}')
         print(f'Registrato: {utente.registrato}')
-        print(f'Abilitato: {utente.abilitato}\n')
+        print(f'Autenticato: {utente.autenticato}\n')
+
+
+
+    def do_addressinfo(self, inp):
+
+        # PROTOTIPO COMANDO: addressinfo
+
+        '''La function mostra l'indirizzo correntemente in utilizzo'''
+
+        print(address)
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -227,7 +237,7 @@ def Receiver(address, args):
     #definizione dei parametri del get
     user = {}
     user['username'] = utente.username
-    user['token'] = user.token
+    user['token'] = utente.token
 
     #recupero i messaggi che mi sono stati inviati
     response = requests.get(address + '/api/v1/resources/receive', params = user)
@@ -251,7 +261,9 @@ parser.add_argument("-i2", "--root", help = "Cartella Base",
 
 args = parser.parse_args()
 
-address = '127.0.0.1:12345' # Indirizzo predefinito
+address = '127.0.0.1:12345'  # Indirizzo predefinito
+
+utente = Utente()
 
 if __name__ == '__main__':
 
@@ -267,4 +279,4 @@ if __name__ == '__main__':
 
     while True:
         time.sleep(1)
-        Receiver(address)
+        Receiver(address, args)
