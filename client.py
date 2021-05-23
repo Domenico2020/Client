@@ -9,8 +9,6 @@ import pickle
 import time
 import sys
 import playsound as ps
-import pprint as pp
-from icecream import ic
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -31,8 +29,9 @@ class ClientPrompt(Cmd):
 
     '''Viene definita una classe ClientPrompt, proprio come abbiamo fatto con il ring.'''
 
-    prompt = 'ISI-Client -->'
-    intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help"
+    prompt = 'ISI-Client --> '
+    intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help.\n Per prima cosa, inserisci l'indirizzo del tuo host!"
+
     
     def do_registration(self, inp):
 
@@ -61,7 +60,7 @@ class ClientPrompt(Cmd):
         #user['token'] = utente.token
 
         #invio credenziali e recupero json di risposta
-        ic('Richiesta di Registrazione in corso...')
+        print('Richiesta di Registrazione in corso...')
         response = requests.post(address + '/api/v1/resources/registration', params = user)
         response = json.dumps(response.json(), indent = 4, sort_keys = False)  # json1(tutto ok)   json2(errore di qualche tipo)
 
@@ -91,7 +90,7 @@ class ClientPrompt(Cmd):
         #user['token'] = utente.token
 
         #invio credenziali e recupero json di risposta
-        ic('Richiesta di Autenticazione in corso...')
+        print('Richiesta di Autenticazione in corso...')
         response = requests.get(address + '/api/v1/resources/authentication', params = user)
         response = json.dumps(response.json(), indent = 4, sort_keys = False)
 
@@ -145,6 +144,8 @@ class ClientPrompt(Cmd):
 
     def do_load(self, inp):
 
+        # PROTOTIPO COMANDO: load <username>
+
         '''La function carica le informazioni di un utente sul client.'''
 
         #DA IMPLEMENTARE PROTOCOLLI DI SICUREZZA PER OSCURARE LE INFORMAZIONI PERSONALI
@@ -160,11 +161,13 @@ class ClientPrompt(Cmd):
                 global utente
                 utente = pickle.load(fin)
         else:
-            pp.pprint("Il profilo indicato non è disponibile nella cache")
+            print("Il profilo indicato non è disponibile nella cache")
 
 
 
-    def do_help(self):
+    def do_help(self, inp):
+
+        # PROTOTIPO COMANDO: help
 
         '''La function stampa una breve documentazione dei comandi implementati nel ClientPrompt.'''
 
@@ -174,7 +177,7 @@ class ClientPrompt(Cmd):
 
     def do_address(self, inp):
 
-        ##PROTOTIPO COMANDO: address <address>
+        # PROTOTIPO COMANDO: address <address>
 
         '''La function permette di specificare l'indirizzo degli host'''
 
@@ -185,13 +188,28 @@ class ClientPrompt(Cmd):
 
 
 
-    def do_exit(self):
+    def do_exit(self, inp):
+
+        # PROTOTIPO COMANDO: exit
 
         '''La function interrompe i processi del client'''
 
-        print('Client interrotto')
-        self.close()
-        sys.exit()
+        print('Servizio Interrotto')
+        return True
+
+
+
+    def do_info(self, inp):
+
+        # PROTOTIPO COMANDO: info
+
+        '''La function mostra le informazioni del profilo correntemente in utilizzo'''
+
+        print(f'\nUtente: {utente.username}')
+        print(f'Password: {utente.password}')
+        print(f'Token: {utente.token}')
+        print(f'Registrato: {utente.registrato}')
+        print(f'Abilitato: {utente.abilitato}\n')
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -242,7 +260,8 @@ if __name__ == '__main__':
 
     prompt = ClientPrompt()
 
-    Thread(target = managePrompt, args = (prompt,)).start()
+    #Thread(target = managePrompt, args = (prompt,)).start()
+    managePrompt(prompt)
 
     while True:
         time.sleep(1)
