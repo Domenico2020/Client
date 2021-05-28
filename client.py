@@ -5,10 +5,11 @@ from threading import Thread
 import argparse
 import pickle
 import time
-import sys
+#import sys
 import playsound as ps
 import re
 import os
+import json
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -61,8 +62,13 @@ class ClientPrompt(Cmd):
 
         #invio credenziali e recupero json di risposta
         print('Richiesta di Registrazione in corso...')
-        response = requests.post(address + '/api/v1/resources/registration', params = user)
-        response = json.dumps(response.json(), indent = 4, sort_keys = False)  # json1(tutto ok)   json2(errore di qualche tipo)
+        try:
+            response = requests.post(address + '/api/v1/resources/registration', params = user)
+            response = json.dumps(response.json(), indent = 4, sort_keys = False)  # json1(tutto ok)   json2(errore di qualche tipo)
+        except:
+            print('Ops, qualcosa è andato storto...')
+            global go_on
+            go_on = False
 
         if response['message'] == 'utente registrato correttamente':
             utente.registrato = True   # -----> l'utente è stato registrato con successo
@@ -76,7 +82,7 @@ class ClientPrompt(Cmd):
 
 
 
-    def do_authentication(self):
+    def do_authentication(self, inp):
 
         #PROTOTIPO COMANDO: authentication
 
@@ -91,8 +97,13 @@ class ClientPrompt(Cmd):
 
         #invio credenziali e recupero json di risposta
         print('Richiesta di Autenticazione in corso...')
-        response = requests.get(address + '/api/v1/resources/authentication', params = user)
-        response = json.dumps(response.json(), indent = 4, sort_keys = False)
+        try:
+            response = requests.get(address + '/api/v1/resources/authentication', params = user)
+            response = json.dumps(response.json(), indent = 4, sort_keys = False)
+        except:
+            print('Ops, qualcosa è andato storto...')
+            global go_on
+            go_on = False
 
         #ho 3 possibili scenari : json1(tutto ok)  json2(token scaduto + token)  json3(nome utente o password errati)
         if response['message'] == "L'UTENTE HA ANCORA IL TOKEN VALIDO":
@@ -138,7 +149,12 @@ class ClientPrompt(Cmd):
         package['token'] = utente.token
 
         #quando creo un package completo...
-        response = requests.post(address + '/api/v1/resources/send', params = package)
+        try:
+            response = requests.post(address + '/api/v1/resources/send', params = package)
+        except:
+            print('Ops, qualcosa è andato storto...')
+            global go_on
+            go_on = False
 
 
 
@@ -185,7 +201,9 @@ class ClientPrompt(Cmd):
         if bool(result):
             global address
             address = result.group(1)
+            print("L'indirizzo è stato modificato con successo...")
 
+    
 
 
     def do_exit(self, inp):
@@ -195,6 +213,8 @@ class ClientPrompt(Cmd):
         '''La function interrompe i processi del client'''
 
         print('Servizio Interrotto')
+        global go_on
+        go_on = False
         return True
 
 
@@ -240,14 +260,19 @@ def Receiver(address, args):
     user['token'] = utente.token
 
     #recupero i messaggi che mi sono stati inviati
-    response = requests.get(address + '/api/v1/resources/receive', params = user)
-    response = json.dumps(response.json(), indent = 4, sort_keys = False)
+    try:
+        response = requests.get(address + '/api/v1/resources/receive', params = user)
+        response = json.dumps(response.json(), indent = 4, sort_keys = False)
+        
+        if len(response['messaggi']) != 0:
+            ps.playsound(args.root + "notification.mp4")
+            for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
+                print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
 
-    if len(response['messaggi']) != 0:
-        ps.playsound(args.root + "notification.mp4")
-        for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
-            pp.pprint(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
-
+    except:
+        #sys.exit()
+        print('Ops, qualcosa è andato storto...')
+        
 #----------------------------------------------------------------------------------------------------------------------#
 
 #creo una cartella di memoria per salvare i profili utilizzati
@@ -265,6 +290,8 @@ address = '127.0.0.1:12345'  # Indirizzo predefinito
 
 utente = Utente()
 
+go_on = True
+
 if __name__ == '__main__':
 
     #logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.ERROR)
@@ -274,9 +301,10 @@ if __name__ == '__main__':
 
     prompt = ClientPrompt()
 
-    #Thread(target = managePrompt, args = (prompt,)).start()
-    managePrompt(prompt)
-
-    while True:
-        time.sleep(1)
+    thr = Thread(target = managePrompt, args = (prompt,))
+    thr.start()
+    thr.join()
+    
+    while go_on:
+        time.sleep(60)
         Receiver(address, args)
