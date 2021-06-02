@@ -3,7 +3,6 @@ from cmd import Cmd
 from datetime import datetime
 from threading import Thread
 import argparse
-import pickle
 import time
 #import sys
 import playsound as ps
@@ -77,8 +76,9 @@ class ClientPrompt(Cmd):
             print(response['message'])  # -----> sarà 'nome utente già esistente'
 
         save_path = args.cache + utente.username
-        with open(save_path, 'wb') as outfile:
-            pickle.dump(utente)
+        with open(save_path, 'w+') as outfile:  # -----> creo il file del profilo
+            json.dump(utente.__dict__, outfile)
+
 
 
 
@@ -113,8 +113,8 @@ class ClientPrompt(Cmd):
             utente.token = response['token']     # -----> aggiorno il token dell'utente
             utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
             save_path = args.cache + utente.username
-            with open(save_path, 'wb') as outfile:   # -----> salvo le informazioni del profilo in un file apposito
-                pickle.dump(utente)
+            with open(save_path, 'w+') as outfile:   # -----> salvo le informazioni del profilo in un file apposito
+                json.dump(utente.__dict__, outfile)
             print('Sei online!')
         else:
             print(response['message']) # -----> sarà 'nome utente o password sbagliata'
@@ -175,7 +175,7 @@ class ClientPrompt(Cmd):
         if os.path.exists(path):
             with open(path, 'rb') as fin:
                 global utente
-                utente = pickle.load(fin)
+                utente = json.load(fin)
         else:
             print("Il profilo indicato non è disponibile nella cache")
 
