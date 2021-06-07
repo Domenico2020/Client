@@ -9,6 +9,7 @@ import playsound as ps
 import re
 import os
 import json
+import pickle
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -32,8 +33,8 @@ class ClientPrompt(Cmd):
     prompt = 'ISI-Client --> '
     intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help.\nPer prima cosa, inserisci l'indirizzo del tuo host!"
 
-    
-    def do_registration(self, inp):
+
+    def do_reg(self, inp):
 
         #PROTOTIPO COMANDO: registration [username] <password>
 
@@ -61,28 +62,25 @@ class ClientPrompt(Cmd):
 
         #invio credenziali e recupero json di risposta
         print('Richiesta di Registrazione in corso...')
-        try:
-            response = requests.post(address + '/api/v1/resources/registration', params = user)
-            response = json.dumps(response.json(), indent = 4, sort_keys = False)  # json1(tutto ok)   json2(errore di qualche tipo)
-        except:
-            print('Ops, qualcosa è andato storto...')
-            global go_on
-            go_on = False
 
-        if response['message'] == 'utente registrato correttamente':
-            utente.registrato = True   # -----> l'utente è stato registrato con successo
-            print('La registrazione è avvenuta con successo. Ora puoi accedere al servizio di messaggistica ISI!')
-        else:
-            print(response['message'])  # -----> sarà 'nome utente già esistente'
+        response = requests.post(address + '/api/v1/resources/registration', params = user)
+        print(response.json())
+        #r = dict(response.json())  # json1(tutto ok)   json2(errore di qualche tipo)
+        #print(r['message'])
+        #if r['message'] == 'utente registrato correttamente':
+        #    utente.registrato = True   # -----> l'utente è stato registrato con successo
+        #    print('La registrazione è avvenuta con successo. Ora puoi accedere al servizio di messaggistica ISI!')
+        #else:
+        #    print(r['message'])  # -----> sarà 'nome utente già esistente'
 
         save_path = args.cache + utente.username
-        with open(save_path, 'w+') as outfile:  # -----> creo il file del profilo
-            json.dump(utente.__dict__, outfile)
+        with open(save_path, 'wb') as outfile:  # -----> creo il file del profilo
+            pickle.dump(utente, outfile)
 
 
 
 
-    def do_authentication(self, inp):
+    def do_auth(self, inp):
 
         #PROTOTIPO COMANDO: authentication
 
@@ -97,27 +95,23 @@ class ClientPrompt(Cmd):
 
         #invio credenziali e recupero json di risposta
         print('Richiesta di Autenticazione in corso...')
-        try:
-            response = requests.get(address + '/api/v1/resources/authentication', params = user)
-            response = json.dumps(response.json(), indent = 4, sort_keys = False)
-        except:
-            print('Ops, qualcosa è andato storto...')
-            global go_on
-            go_on = False
+
+        response = requests.get(address + '/api/v1/resources/authentication', params = user)
+        r = json.dumps(response.json(), indent = 4, sort_keys = False)
 
         #ho 3 possibili scenari : json1(tutto ok)  json2(token scaduto + token)  json3(nome utente o password errati)
-        if response['message'] == "L'UTENTE HA ANCORA IL TOKEN VALIDO":
+        if r['message'] == "L'UTENTE HA ANCORA IL TOKEN VALIDO":
             utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
             print('Sei online!')
-        elif response['message'] == "IL TOKEN SCADUTO E' STATO AGGIORNATO, AUTENTICAZIONE RIUSCITA":
+        elif r['message'] == "IL TOKEN SCADUTO E' STATO AGGIORNATO, AUTENTICAZIONE RIUSCITA":
             utente.token = response['token']     # -----> aggiorno il token dell'utente
             utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
             save_path = args.cache + utente.username
-            with open(save_path, 'w+') as outfile:   # -----> salvo le informazioni del profilo in un file apposito
-                json.dump(utente.__dict__, outfile)
+            with open(save_path, 'wb') as outfile:   # -----> salvo le informazioni del profilo in un file apposito
+                pickle.dump(utente,outfile)
             print('Sei online!')
         else:
-            print(response['message']) # -----> sarà 'nome utente o password sbagliata'
+            print(r['message']) # -----> sarà 'nome utente o password sbagliata'
 
 
 
@@ -175,7 +169,7 @@ class ClientPrompt(Cmd):
         if os.path.exists(path):
             with open(path, 'rb') as fin:
                 global utente
-                utente = json.load(fin)
+                utente = pickle.load(fin)
         else:
             print("Il profilo indicato non è disponibile nella cache")
 
@@ -203,7 +197,7 @@ class ClientPrompt(Cmd):
             address = result.group(1)
             print("L'indirizzo è stato modificato con successo...")
 
-    
+
 
 
     def do_exit(self, inp):
@@ -263,7 +257,6 @@ def Receiver(address, args):
     try:
         response = requests.get(address + '/api/v1/resources/receive', params = user)
         response = json.dumps(response.json(), indent = 4, sort_keys = False)
-        
         if len(response['messaggi']) != 0:
             ps.playsound(args.root + "notification.mp4")
             for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
@@ -272,7 +265,7 @@ def Receiver(address, args):
     except:
         #sys.exit()
         print('Ops, qualcosa è andato storto...')
-        
+
 #----------------------------------------------------------------------------------------------------------------------#
 
 #creo una cartella di memoria per salvare i profili utilizzati
@@ -286,7 +279,7 @@ parser.add_argument("-i2", "--root", help = "Cartella Base",
 
 args = parser.parse_args()
 
-address = '127.0.0.1:12345'  # Indirizzo predefinito
+address = 'http://172.20.10.12:12345'  # Indirizzo predefinito
 
 utente = Utente()
 
@@ -304,7 +297,8 @@ if __name__ == '__main__':
     thr = Thread(target = managePrompt, args = (prompt,))
     thr.start()
     thr.join()
-    
-    while go_on:
-        time.sleep(60)
-        Receiver(address, args)
+
+    if utente.registrato and utente.autenticato:
+        while go_on:
+              time.sleep(60)
+              Receiver(address, args)
