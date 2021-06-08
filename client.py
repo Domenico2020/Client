@@ -10,12 +10,14 @@ import re
 import os
 import json
 import pickle
+import shutil
+import winsound
 
 #----------------------------------------------------------------------------------------------------------------------#
 
 class Utente():
 
-    '''Viene definita un oggetto utente, che raccolga tutte le informazioni del client.'''
+    '''Viene definito un oggetto utente, che raccolga tutte le informazioni del client.'''
 
     def __init__(self):
         self.username = None
@@ -31,7 +33,7 @@ class ClientPrompt(Cmd):
     '''Viene definita una classe ClientPrompt, proprio come abbiamo fatto con il ring.'''
 
     prompt = 'ISI-Client --> '
-    intro = "Benvenuto nel sistema di messagistica ISI. Usa ? per accedere all'help.\nPer prima cosa, inserisci l'indirizzo del tuo host!"
+    intro = "Benvenuto nel sistema di messaggistica ISI.\nPer prima cosa, inserisci l'indirizzo del tuo host!"
 
 
     def do_reg(self, inp):
@@ -64,14 +66,12 @@ class ClientPrompt(Cmd):
         print('Richiesta di Registrazione in corso...')
 
         response = requests.post(address + '/api/v1/resources/registration', params = user)
-        print(response.json())
-        #r = dict(response.json())  # json1(tutto ok)   json2(errore di qualche tipo)
-        #print(r['message'])
-        #if r['message'] == 'utente registrato correttamente':
-        #    utente.registrato = True   # -----> l'utente è stato registrato con successo
-        #    print('La registrazione è avvenuta con successo. Ora puoi accedere al servizio di messaggistica ISI!')
-        #else:
-        #    print(r['message'])  # -----> sarà 'nome utente già esistente'
+        r = json.loads(response.text)
+        if r['message'] == 'utente registrato correttamente':
+            utente.registrato = True   # -----> l'utente è stato registrato con successo
+            print('La registrazione è avvenuta con successo. Ora puoi accedere al servizio di messaggistica ISI!')
+        else:
+            print(r['message'])  # -----> sarà 'nome utente già esistente'
 
         save_path = args.cache + utente.username
         with open(save_path, 'wb') as outfile:  # -----> creo il file del profilo
@@ -95,21 +95,21 @@ class ClientPrompt(Cmd):
 
         #invio credenziali e recupero json di risposta
         print('Richiesta di Autenticazione in corso...')
-
+        
         response = requests.get(address + '/api/v1/resources/authentication', params = user)
-        r = json.dumps(response.json(), indent = 4, sort_keys = False)
-
+        r = json.loads(response.text)
+        
         #ho 3 possibili scenari : json1(tutto ok)  json2(token scaduto + token)  json3(nome utente o password errati)
         if r['message'] == "L'UTENTE HA ANCORA IL TOKEN VALIDO":
-            utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
+            utente.autenticato = True    # -----> l'utente è abilitato a usare il servizio
             print('Sei online!')
-        elif r['message'] == "IL TOKEN SCADUTO E' STATO AGGIORNATO, AUTENTICAZIONE RIUSCITA":
-            utente.token = response['token']     # -----> aggiorno il token dell'utente
-            utente.abilitato = True    # -----> l'utente è abilitato a usare il servizio
+        elif r['message'] == "IL TOKEN SCADUTO E' STATO AGGIORNATO, AUTENTICAZIONE RIUSCITA" or r['message'] == "IL TOKEN E' STATO CREATO PER LA PRIMA VOLTA: ASSEGNAZIONE TOKEN RIUSCITA":
+            utente.token = r['token']     # -----> aggiorno il token dell'utente
+            utente.autenticato = True    # -----> l'utente è abilitato a usare il servizio
             save_path = args.cache + utente.username
             with open(save_path, 'wb') as outfile:   # -----> salvo le informazioni del profilo in un file apposito
                 pickle.dump(utente,outfile)
-            print('Sei online!')
+            print('Sei online!')              
         else:
             print(r['message']) # -----> sarà 'nome utente o password sbagliata'
 
@@ -117,7 +117,7 @@ class ClientPrompt(Cmd):
 
     def do_send(self, inp):
 
-        #PROTOTIPO COMANDO: send <text> [receiver]
+        #PROTOTIPO COMANDO: send [receiver] <text>
 
         '''La function definisce una coda di messaggi in uscita: ogni 2 secondi viene controllata e vengono inviati i
            pacchetti eventualmente presenti in essa. Il pacchetto tipo è formato da un messaggio testuale, dal mittente
@@ -126,29 +126,29 @@ class ClientPrompt(Cmd):
         #inserisco tutte le informazioni necessarie per il messaggio
         package = {}
 
-        #prendo il messaggio
-        result = re.search('<([a-zA-Z0-9\,\.\;\'\"\!\?<> ]*)>', inp)
-        if bool(result):
-            package['messaggio'] = result.group(1)
-
-        package['mittente'] = utente.username
-
-        #prendo il destinatario
-        result = re.search('^\[([a-zA-Z0-9]*)\]', inp)
+        result = re.search('^\[([a-zA-Z0-9]*)\]', inp)       #prendo il destinatario
         if bool(result):
             package['destinatario'] = result.group(1)
+        result = re.search('<([a-zA-Z0-9\,\.\;\'\"\!\?<> ]*)>', inp)      #prendo il messaggio
+        if bool(result):
+            package['messaggio'] = result.group(1)
+        
+        package['mittente'] = utente.username
 
         package['data'] = datetime.now()
 
         package['token'] = utente.token
 
         #quando creo un package completo...
-        try:
-            response = requests.post(address + '/api/v1/resources/send', params = package)
-        except:
-            print('Ops, qualcosa è andato storto...')
-            global go_on
-            go_on = False
+        #try:
+        r = requests.post(address + '/api/v1/resources/send', params = package)
+        alert = json.loads(r.text)
+        if alert['message'] != "INVIO DEL MESSAGGIO RIUSCITO":
+            print(alert['message'])
+        #except:
+        #    print('Ops, qualcosa è andato storto...')
+        #    global go_on
+        #    go_on = False
 
 
 
@@ -219,11 +219,14 @@ class ClientPrompt(Cmd):
 
         '''La function mostra le informazioni del profilo correntemente in utilizzo'''
 
-        print(f'\nUtente: {utente.username}')
-        print(f'Password: {utente.password}')
-        print(f'Token: {utente.token}')
-        print(f'Registrato: {utente.registrato}')
-        print(f'Autenticato: {utente.autenticato}\n')
+        if "utente" in globals():
+            print(f'\nUtente: {utente.username}')
+            print(f'Password: {utente.password}')
+            print(f'Token: {utente.token}')
+            print(f'Registrato: {utente.registrato}')
+            print(f'Autenticato: {utente.autenticato}')
+        else:
+            print("Nessun utente ha effettuato l'accesso...")
 
 
 
@@ -234,6 +237,30 @@ class ClientPrompt(Cmd):
         '''La function mostra l'indirizzo correntemente in utilizzo'''
 
         print(address)
+
+
+
+    def do_erase(self, inp):
+
+        # PROTOTIPO COMANDO: erase [username]   -----> usare all per eliminare tutta la cache
+
+        '''La function elimina il profilo indicato da linea di comando. Se viene specificato all, cancella tutta la cache dei profili.'''
+
+        result = re.search('^\[([a-zA-Z0-9]*)\]', inp)    # seleziono l'opzione
+        if bool(result):
+            user = result.group(1)
+
+        if user == 'all':
+            if os.path.exists(args.cache):     # se all ed esiste, cancello tutto
+                shutil.rmtree(args.cache)
+            else:
+                print('La cartella indicata non esiste...')
+        else:
+            profile_path = args.cache + user     #altrimenti, se esiste cancello il file selezionato
+            if os.path.exists(profile_path):
+                os.remove(profile_path)
+            else:
+                print('Il profilo selezionato non esiste...')
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -249,22 +276,19 @@ def Receiver(address, args):
        del messaggio e dalla data/ora di scrittura.'''
 
     #definizione dei parametri del get
-    user = {}
-    user['username'] = utente.username
-    user['token'] = utente.token
-
-    #recupero i messaggi che mi sono stati inviati
-    try:
+    if "utente" in globals():
+        user = {}
+        user['username'] = utente.username
+        user['token'] = utente.token
+    
+        #recupero i messaggi che mi sono stati inviati
         response = requests.get(address + '/api/v1/resources/receive', params = user)
-        response = json.dumps(response.json(), indent = 4, sort_keys = False)
+        response = json.loads(response.text)
         if len(response['messaggi']) != 0:
-            ps.playsound(args.root + "notification.mp4")
+            winsound.Beep(100, 1500)
             for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
                 print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
-
-    except:
-        #sys.exit()
-        print('Ops, qualcosa è andato storto...')
+                response['messaggi'].pop(messaggio)
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -281,24 +305,20 @@ args = parser.parse_args()
 
 address = 'http://172.20.10.12:12345'  # Indirizzo predefinito
 
-utente = Utente()
-
 go_on = True
 
 if __name__ == '__main__':
 
     #logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.ERROR)
 
-    if not os.path.exists(args.cache):
+    if not os.path.exists(args.cache): 
         os.mkdir(args.cache)
 
     prompt = ClientPrompt()
 
-    thr = Thread(target = managePrompt, args = (prompt,))
+    thr = Thread(target = managePrompt, args = (prompt,))   #AGGIORNARE: il prompt diventa main e il receiver diventa thread
     thr.start()
-    thr.join()
 
-    if utente.registrato and utente.autenticato:
-        while go_on:
-              time.sleep(60)
-              Receiver(address, args)
+    while go_on:
+          time.sleep(15)
+          Receiver(address, args)
