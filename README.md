@@ -1,9 +1,15 @@
 # Client
 Architettura dei Sistemi Distribuiti
 
+
+<b>REGISTRAZIONE</b>: separate chat log window, profile cache locker
+
+
 Implementazione di un Client per il Progetto ChatServer del Corso di Architettura dei Sistemi Distribuiti.
 
+
 INDIRIZZO PREDEFINITO: 'http://172.20.10.12:12345' ----> è bene che l'utente come prima cosa cambi l'indirizzo predefinito del server con quello effettivo.
+
 
 Il Client si basa su un <b>PROMPT</b> capace di svolgere 9 funzioni: 
 
