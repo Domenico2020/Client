@@ -2,7 +2,7 @@
 Architettura dei Sistemi Distribuiti
 
 
-<b>REGISTRAZIONE</b>: separate chat log window, profile cache locker
+<b>INCOMING FEATURES</b>: separate chat log window, profile cache locker
 
 
 Implementazione di un Client per il Progetto ChatServer del Corso di Architettura dei Sistemi Distribuiti.
