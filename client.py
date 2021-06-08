@@ -11,7 +11,7 @@ import os
 import json
 import pickle
 import shutil
-import winsound
+#import winsound
 
 #----------------------------------------------------------------------------------------------------------------------#
 
@@ -285,10 +285,10 @@ def Receiver(address, args):
         response = requests.get(address + '/api/v1/resources/receive', params = user)
         response = json.loads(response.text)
         if len(response['messaggi']) != 0:
-            winsound.Beep(100, 1500)
+            #winsound.Beep(100, 1500)
             for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
                 print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")
-                response['messaggi'].pop(messaggio)
+                response['messaggi'].remove(messaggio)
 
 #----------------------------------------------------------------------------------------------------------------------#
 
