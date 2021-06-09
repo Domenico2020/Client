@@ -2,7 +2,7 @@
 Architettura dei Sistemi Distribuiti
 
 
-<b>INCOMING FEATURES</b>: separate chat log window, profile cache locker
+<b>ATTENZIONE</b>: la funzione <b>LOAD</b> e la <b>soppressione dei thread di ricezione</b> sono ancora in fase di studio.
 
 
 Implementazione di un Client per il Progetto ChatServer del Corso di Architettura dei Sistemi Distribuiti.
@@ -14,13 +14,13 @@ INDIRIZZO PREDEFINITO: 'http://172.20.10.12:12345' ----> è bene che l'utente co
 Il Client si basa su un <b>PROMPT</b> capace di svolgere 9 funzioni: 
 
 
-<b>REGISTRAZIONE</b> --PROTOTIPO COMANDO: registration [*username:* a-zA-Z0-9] <*password:* a-zA-Z0-9,.;'"!?>
+<b>REGISTRAZIONE</b> --PROTOTIPO COMANDO: reg [*username:* a-zA-Z0-9] <*password:* a-zA-Z0-9,.;'"!?>
 
 Vengono inviate le credenziali del nuovo utente.Se il processo di registrazione va a buon fine, viene aggiornato il parametro *registrato* nell'oggetto Utente appositamente creato.
 
 
 
-<b>AUTENTICAZIONE</b> -- PROTOTIPO COMANDO: authentication 
+<b>AUTENTICAZIONE</b> -- PROTOTIPO COMANDO: auth 
 
 Vengono inviate le credenziali dell'utente attuale e richiesto un token.Dopo il processo di autenticazione, il parametro *token* nell'oggetto Utente viene aggiornato qualora sia stato necessario creare un nuovo token/sostituire il token scaduto. Viene aggiornato anche il parametro *autenticato* nell'oggetto utente.
 
@@ -68,7 +68,7 @@ Viene interrotto il servizio del Client.
 
 
 
-<b>GESTIONE PROFILI</b> --  PROTOTIPO COMANDO: erase [username]  
+<b>GESTIONE PROFILI</b> --  PROTOTIPO COMANDO: erase [*username:* a-zA-Z0-9]  
 
 Viene eliminato il profilo selezionato dalla cache. Se viene specificato 'all', viene eliminata tutta la cache.
 
