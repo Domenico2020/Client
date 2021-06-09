@@ -1,6 +1,7 @@
 # ignorare le seguenti cartelle:
 
 Cache/*
+__pycache__/*
 
 # ---------------------------- #
 
