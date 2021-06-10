@@ -7,7 +7,7 @@ Created on Wed Jun  9 21:48:31 2021
 
 import time
 import requests
-import chime
+#import chime
 import json
 
 #--------------------------------------------------------------------------------------------------------------------#
@@ -33,7 +33,7 @@ def Receiver(address, utente):
         
         if len(response['messaggi']) != 0:
             
-            chime.success()
+            #chime.success()
             
             for messaggio in response['messaggi']:   # -----> stampo tutti i messaggi che sono arrivati
                 print(f"Messaggio in arrivo da {messaggio['mittente']}: --- {messaggio['messaggio']} --- {messaggio['data']}")

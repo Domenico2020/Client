@@ -202,7 +202,16 @@ class ClientPrompt(Cmd):
 
         '''La function stampa una breve documentazione dei comandi implementati nel ClientPrompt.'''
 
-        pass
+        print("\nLISTA DELLE AZIONI ATTUALMENTE DISPONIBILI:")
+        print("\nREGISTRAZIONE: registrazione al servizio dell'utente specificato ------> reg [username] <password>")
+        print("\nAUTENTICAZIONE: autenticazione dell'utente in uso ------> auth")
+        print("\nSEND: invio di un messaggio a un utente ------> send [username] <messaggio>")
+        print("\nLOAD: caricamento di un profilo già presente nella cache (ANCORA SPERIMENTALE!) ------> load [username]")
+        print("\nADDRESS: permette di modificare l'indirizzo dell'host ------> address <address>")
+        print("\nADDRESSINFO: permette di visualizzare l'indirizzo dell'host ------> addressinfo")
+        print("\nINFO: permette di visualizzare le informazioni sull'utente ------> info")
+        print("\nERASE: permette di eliminare profili dalla cache (o la cache se il tag è 'all') ------> erase [all] / erase [username]")
+        print("\nEXIT: interruzione del servizio ------> exit")
 
 
 
