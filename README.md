@@ -38,7 +38,7 @@ Qualora l'utente specificato sia presente nella cache di memoria locale, il corr
 
 
 
-<b>HELP</b> -----> ANCORA DA IMPLEMENTARE -- PROTOTIPO COMANDO: help
+<b>HELP</b> -- PROTOTIPO COMANDO: help
 
 Viene stampata una breve documentazione su tutte le function del Prompt.
 
